@@ -94,6 +94,20 @@
             android:letterSpacing="0.12" />
     </LinearLayout>
 
+    <!-- Today's games and the prayer line (MatchStrip), read from the matches add-on's provider; in the free
+         space under the clock, like the race panel. Hidden while the add-on gives nothing. -->
+    <LinearLayout
+        android:id="@+id/matchPanel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|left"
+        android:layout_marginStart="50dp"
+        android:layout_marginTop="142dp"
+        android:orientation="vertical"
+        android:focusable="false"
+        android:importantForAccessibility="no"
+        android:visibility="gone" />
+
     <!-- Cinematic top shelf: darkens the edge behind the shelf and the lower half, so the text and the
          dock stay readable over the artwork. -->
     <View
@@ -195,7 +209,7 @@
                     android:orientation="horizontal"
                     android:baselineAligned="true">
 
-                    <TextClock
+                    <com.gathin.tvhome.LatinTextClock
                         android:id="@+id/clock"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -255,7 +269,7 @@
                             android:includeFontPadding="false"
                             android:visibility="gone" />
 
-                        <TextClock
+                        <com.gathin.tvhome.LatinTextClock
                             android:id="@+id/date"
                             android:gravity="left"
                             android:layout_width="match_parent"
@@ -384,6 +398,7 @@
                 android:scrollbars="none"
                 android:descendantFocusability="afterDescendants" />
         </FrameLayout>
+
     </LinearLayout>
 
     <!-- The single floating glass highlight that springs between tiles. -->

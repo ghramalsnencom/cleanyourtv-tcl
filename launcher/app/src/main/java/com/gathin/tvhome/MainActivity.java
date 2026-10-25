@@ -187,6 +187,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private List<RaceWeekend.Race> raceCalendar;
     private View racePanel;
     private TextView raceKicker, raceHeadline, raceSessions;
+    /** Today's games and the prayer line from the matches add-on. */
+    private MatchStrip matchStrip;
     /** config.xml show_stats, overridable by a theme. Off: the line is gone and nothing is read. */
     private boolean showStats;
     private boolean shamsi;
@@ -361,6 +363,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         public void run() {
             updateGreeting();
             updateRace();
+            matchStrip.tick();
             // The pill follows the network callbacks and each return to Home; only the diya's flame follows the
             // signal level, so only it needs this minute's binder calls (about 7 ms on the UI thread).
             if (festive) updateWifiLabel();
@@ -479,6 +482,23 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         raceKicker = findViewById(R.id.raceKicker);
         raceHeadline = findViewById(R.id.raceHeadline);
         raceSessions = findViewById(R.id.raceSessions);
+        matchStrip = new MatchStrip(this, findViewById(R.id.matchPanel), new MatchStrip.Host() {
+            @Override public void onStripFocused() {
+                hideGlass();
+                hideHero();
+            }
+            // Up: on to the top bar, the first pill that is shown.
+            @Override public void onStripUp() {
+                for (int id : new int[] {R.id.btnInputs, R.id.btnWifi, R.id.btnSettings}) {
+                    View b = findViewById(id);
+                    if (b != null && b.getVisibility() == View.VISIBLE && b.requestFocus()) return;
+                }
+            }
+            // Down: back to the dock tile Up left from (the cards are not grid positions, so lastFocused is still it).
+            @Override public void onStripDown() {
+                focusTile(Math.min(lastFocused, COLUMNS - 1));
+            }
+        });
         showStats = cfg.showStats;
         shamsi = cfg.shamsiDate;
         lunarDate = findViewById(R.id.lunarDate);
@@ -635,6 +655,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         });
 
         // Keep the glass glued to its tile while the grid scrolls.
+        matchStrip.follow(grid);
         grid.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(@NonNull RecyclerView rv, int dx, int dy) {
@@ -947,6 +968,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (openLiveTvAfterBoot()) return;
         updateGreeting();
         updateRace();
+        matchStrip.start();
         // The network and Inputs pills keep their state while Home is in the background, and callbacks update them
         // when the network or the inputs change, so this refresh only catches anything missed. Its binder calls
         // (about 7 ms on a TCL C755, most of it WifiManager.getConnectionInfo) would hold up the first frame back
@@ -1135,6 +1157,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         ambient.animate().cancel();
         heroArt.animate().cancel();
         handler.removeCallbacks(minuteTick);
+        matchStrip.stop();
         stopStats();
         if (diya != null) diya.stop();
         cancelPendingFocusScroll();
@@ -1233,6 +1256,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (handleSettingsKey(event)) return true;
+        // Today's games along the bottom: their arrows and OK are decided here, before the default focus search.
+        if (!reordering && matchStrip != null && matchStrip.handleKey(getCurrentFocus(), event)) return true;
         if (tileMenuEnabled && !reordering && openPopup == null && cardPrompt == null
                 && event.getKeyCode() == KeyEvent.KEYCODE_MENU) {
             int position = focusedTilePosition();
@@ -2232,7 +2257,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     rtlAppGrid, keyCode == KeyEvent.KEYCODE_DPAD_LEFT);
         }
         if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
-            if (position < COLUMNS) return false;          // dock row: let focus move to the top bar
+            if (position < COLUMNS) {
+                // Dock row: Up goes to today's games under the clock first, when there are any; else the top bar.
+                if (dockRow && matchStrip.canFocus()) {
+                    matchStrip.focusFirst();
+                    grid.playSoundEffect(SoundEffectConstants.NAVIGATION_UP);
+                    return true;
+                }
+                return false;
+            }
             target = position - COLUMNS;
         } else {
             int lastRowStart = ((count - 1) / COLUMNS) * COLUMNS;
